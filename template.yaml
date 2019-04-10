@@ -1,0 +1,68 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Gracefully drain k8s nodes when instances are terminated (uksb-1pf6fjp67)
+
+Parameters:
+
+  AutoScalingGroup:
+    Type: String
+
+  EksCluster:
+    Type: String
+
+Globals:
+    Function:
+        Timeout: 30
+
+Resources:
+
+    LifecycleHook:
+      Type: AWS::AutoScaling::LifecycleHook
+      Properties:
+        AutoScalingGroupName: !Ref AutoScalingGroup
+        LifecycleTransition: autoscaling:EC2_INSTANCE_TERMINATING
+
+    DrainerFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+          CodeUri: drainer/
+          Handler: handler.lambda_handler
+          Runtime: python3.7
+          MemorySize: 256
+          Environment:
+            Variables:
+              CLUSTER_NAME: !Ref EksCluster
+          Policies:
+            - AWSLambdaExecute
+            - Version: 2012-10-17
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - autoscaling:CompleteLifecycleAction
+                    - ec2:DescribeInstances
+                    - eks:DescribeCluster
+                    - sts:GetCallerIdentity
+                  Resource: '*'
+          Events:
+            TerminationEvent:
+              Type: CloudWatchEvent
+              Properties:
+                Pattern:
+                  source:
+                    - aws.autoscaling
+                  detail:
+                    LifecycleTransition:
+                      - autoscaling:EC2_INSTANCE_TERMINATING
+
+    Permission:
+      Type: AWS::Lambda::Permission
+      Properties:
+        Action: lambda:InvokeFunction
+        FunctionName: !GetAtt DrainerFunction.Arn
+        Principal: events.amazonaws.com
+
+Outputs:
+
+    DrainerFunction:
+      Description: Draining function Arn
+      Value: !GetAtt DrainerFunction.Arn
