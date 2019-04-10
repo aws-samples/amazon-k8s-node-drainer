@@ -22,12 +22,13 @@ Below is a brief explanation of the folder structure of the project:
 ```bash
 .
 ├── README.md                   <-- This instructions file
-├── event.json                  <-- EC2 Termination event
-├── drainer                     <-- Source code for a lambda function
+├── build_deploy.sh             <-- Deployment script
+├── drainer                     <-- Source code for the lambda function
 │   ├── __init__.py
 │   ├── drainer.py              <-- Lambda function code
 │   ├── requirements.txt        <-- Lambda Python dependencies
-│   ├── utils.py
+│   ├── k8s_utils.py
+├── k8s_rbac/                   <-- Kubernetes RBAC configuration
 ├── template.yaml               <-- SAM Template
 └── tests                       <-- Unit tests
     └── drainer
