@@ -118,7 +118,7 @@ aws cloudformation describe-stacks \
 ## Kubernetes Permissions
 
 After deployment there will be an IAM role associated with the lambda that needs to be mapped to a user or group in 
-the EKS cluster. To create the Kubernetes role and rolebinding run the following shell command from the root 
+the EKS cluster. To create the Kubernetes `ClusterRole` and `ClusterRoleBinding` run the following shell command from the root 
 directory of the project:
 
 ```bash
@@ -176,7 +176,7 @@ In order to remove the EKS Node Drainer Lambda function and Lifecycle Hook you c
 aws cloudformation delete-stack --stack-name k8s-drainer
 ```
 
-To remove the Kubernetes ClusterRole and ClusterRoleBinding, run the following commands:
+To remove the Kubernetes `ClusterRole` and `ClusterRoleBinding`, run the following commands:
 
 ```bash
 kubectl delete clusterrolebinding lambda-user-cluster-role-binding
