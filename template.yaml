@@ -23,6 +23,34 @@ Resources:
         HeartbeatTimeout: 300
         LifecycleTransition: autoscaling:EC2_INSTANCE_TERMINATING
 
+    DrainerRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action:
+                - sts:AssumeRole
+        Path: /
+        Policies:
+          - PolicyName: DrainerPolicies
+            PolicyDocument:
+              Version: 2012-10-17
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - autoscaling:CompleteLifecycleAction
+                    - ec2:DescribeInstances
+                    - eks:DescribeCluster
+                    - sts:GetCallerIdentity
+                  Resource: '*'
+        ManagedPolicyArns:
+          - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
     DrainerFunction:
         Type: AWS::Serverless::Function
         Properties:
@@ -33,17 +61,7 @@ Resources:
           Environment:
             Variables:
               CLUSTER_NAME: !Ref EksCluster
-          Policies:
-            - AWSLambdaExecute
-            - Version: 2012-10-17
-              Statement:
-                - Effect: Allow
-                  Action:
-                    - autoscaling:CompleteLifecycleAction
-                    - ec2:DescribeInstances
-                    - eks:DescribeCluster
-                    - sts:GetCallerIdentity
-                  Resource: '*'
+          Role: !GetAtt DrainerRole.Arn
           Events:
             TerminationEvent:
               Type: CloudWatchEvent
@@ -66,6 +84,6 @@ Resources:
 
 Outputs:
 
-    DrainerFunction:
-      Description: Draining function Arn
-      Value: !GetAtt DrainerFunction.Arn
+    DrainerRole:
+      Description: Draining function role ARN
+      Value: !GetAtt DrainerRole.Arn
