@@ -127,9 +127,8 @@ kubectl apply -R -f k8s_rbac/
 ```
 
 You may now create the mapping to the IAM role created when deploying the Drainer function. 
-You can find this role by checking the CloudFormation stack created by the `sam deploy`
-command above (the role is named `DrainerFunctionRole`). Run the `kubectl edit -n kube-system configmap/aws-auth` 
-command and add the following `yaml`:
+You can find this role by checking the `DrainerRole` output of the CloudFormation stack created by the `sam deploy`
+command above. Run `kubectl edit -n kube-system configmap/aws-auth` and add the following `yaml`:
 
 ```yaml
 mapRoles: | 
