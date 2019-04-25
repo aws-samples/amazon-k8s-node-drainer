@@ -127,7 +127,11 @@ def patched_handler(fs, monkeypatch, mocker, mock_eks, mock_ec2):
     monkeypatch.setenv('CLUSTER_NAME', 'test-cluster')
     monkeypatch.setenv('AWS_REGION', 'eu-west-1')
 
-    fs.create_dir('/tmp')
+    # pyfakefs always initialises a temp dir, on Mac it is /var on Linux it is /tmp
+    # https://github.com/jmcgeheeiv/pyfakefs/issues/329
+    if not os.path.exists('/tmp'):
+        fs.create_dir('/tmp')
+
     # boto3 won't work if it can't write to this directory
     boto_dir = os.path.abspath(os.path.join(os.path.dirname(boto3.__file__), ".."))
     fs.add_real_directory(boto_dir)
@@ -180,7 +184,11 @@ def test_get_bearer_token(handler, monkeypatch):
 
 
 def test_create_kube_config(handler, fs, mock_eks):
-    fs.create_dir('/tmp')
+    # pyfakefs always initialises a temp dir, on Mac it is /var on Linux it is /tmp
+    # https://github.com/jmcgeheeiv/pyfakefs/issues/329
+    if not os.path.exists('/tmp'):
+        fs.create_dir('/tmp')
+
     kube_config_loc = os.path.join(os.path.dirname(__file__), 'fixtures/kube_config.yaml')
     fs.add_real_file(kube_config_loc)
 
