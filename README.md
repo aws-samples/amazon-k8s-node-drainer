@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/aws-samples/amazon-eks-node-drainer.svg?branch=master)](https://travis-ci.org/aws-samples/amazon-eks-node-drainer)
+
 # Amazon EKS Node Drainer
 
 This sample code provides a means to gracefully terminate nodes of an Amazon Elastic Container Service for Kubernetes 
