@@ -34,6 +34,7 @@ def remove_all_pods(api, node_name):
         body = {
             'apiVersion': 'policy/v1beta1',
             'kind': 'Eviction',
+            'deleteOptions': {},
             'metadata': {
                 'name': pod.metadata.name,
                 'namespace': pod.metadata.namespace
