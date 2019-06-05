@@ -1,7 +1,11 @@
 import logging
+import time
+
+from kubernetes.client.rest import ApiException
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+
 
 
 def cordon_node(api, node_name):
@@ -22,15 +26,30 @@ def cordon_node(api, node_name):
     api.patch_node(node_name, patch_body)
 
 
-def remove_all_pods(api, node_name):
+def remove_all_pods(api, node_name, poll=5):
     """Removes all Kubernetes pods from the specified node."""
     field_selector = 'spec.nodeName=' + node_name
     pods = api.list_pod_for_all_namespaces(watch=False, field_selector=field_selector)
 
     logger.debug('Number of pods to delete: ' + str(len(pods.items)))
 
-    for pod in pods.items:
-        logger.info('Deleting pod {} in namespace {}'.format(pod.metadata.name, pod.metadata.namespace))
+    try_until_completed(api, evict_pods, pods, poll)
+    try_until_completed(api, get_pending, pods, poll)
+
+
+def try_until_completed(api, action, pods, poll):
+    pending = pods.items
+    while len(pending) > 0:
+        pending = action(api, pending)
+        if (len(pending)) <= 0:
+            return
+        time.sleep(poll)
+
+
+def evict_pods(api, pods):
+    remaining = []
+    for pod in pods:
+        logger.info('Evicting pod {} in namespace {}'.format(pod.metadata.name, pod.metadata.namespace))
         body = {
             'apiVersion': 'policy/v1beta1',
             'kind': 'Eviction',
@@ -40,7 +59,39 @@ def remove_all_pods(api, node_name):
                 'namespace': pod.metadata.namespace
             }
         }
-        api.create_namespaced_pod_eviction(pod.metadata.name + '-eviction', pod.metadata.namespace, body)
+        try:
+            api.create_namespaced_pod_eviction(pod.metadata.name + '-eviction', pod.metadata.namespace, body)
+        except ApiException as err:
+            if err.status == 429:
+                remaining.append(pod)
+                logger.warning("Pod %s in namespace %s could not be evicted due to disruption budget. Will retry.", pod.metadata.name, pod.metadata.namespace)
+            else:
+                logger.exception("Unexpected error adding eviction for pod %s in namespace %s", pod.metadata.name, pod.metadata.namespace)
+        except:
+            logger.exception("Unexpected error adding eviction for pod %s in namespace %s", pod.metadata.name, pod.metadata.namespace)
+    return remaining
+
+
+def get_pending(api, pods):
+    pending = []
+    for old_pod in pods:
+        try:
+            current_pod = api.read_namespaced_pod(old_pod.metadata.name, old_pod.metadata.namespace)
+            if current_pod.metadata.uid == old_pod.metadata.uid:
+                logger.debug("Pod %s in namespace %s is still awaiting deletion", old_pod.metadata.name, old_pod.metadata.namespace)
+                pending.append(old_pod)
+            else:
+                logger.info("Eviction successful: %s in namespace %s", old_pod.metadata.name, old_pod.metadata.namespace)
+        except ApiException as err:
+            if err.status == 404:
+                logger.info("Eviction successful: %s in namespace %s", old_pod.metadata.name, old_pod.metadata.namespace)
+            else:
+                pending.append(old_pod)
+                logger.exception("Unexpected error waiting for pod %s in namespace %s", old_pod.metadata.name, old_pod.metadata.namespace)
+        except:
+            logger.exception("Unexpected error waiting for pod %s in namespace %s", old_pod.metadata.name, old_pod.metadata.namespace)
+            pending.append(old_pod)
+    return pending
 
 
 def node_exists(api, node_name):

@@ -48,10 +48,12 @@ def mock_k8s_client_no_nodes(mocker):
 def mock_k8s_client(mocker):
     list_pods_val = dict_to_simple_namespace({'items': [
         {'metadata': {
+            'uid': 'aaa',
             'name': 'test_pod1',
             'namespace': 'test_ns'
         }
         }, {'metadata': {
+            'uid': 'bbb',
             'name': 'test_pod2',
             'namespace': 'test_ns'
         }
@@ -62,7 +64,9 @@ def mock_k8s_client(mocker):
 
     mock_api = mocker.Mock(**{'list_pod_for_all_namespaces.return_value': list_pods_val,
                               'list_node.return_value': list_node_val,
-                              'patch_node.return_value': mocker.Mock()})
+                              'patch_node.return_value': mocker.Mock(),
+                              'read_namespaced_pod.side_effect': ApiException(status=404)}
+                           )
 
     class Configuration:
 
