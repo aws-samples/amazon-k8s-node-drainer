@@ -40,14 +40,14 @@ def remove_all_pods(api, node_name, poll=5):
 
 def pod_is_evictable(pod):
     if pod.metadata.annotations is not None and pod.metadata.annotations.get(MIRROR_POD_ANNOTATION_KEY):
-        logger.info("Skipping mirror pod %s/%s", pod.metadata.namespace, pod.metadata.name)
+        logger.info("Skipping mirror pod {}/{}".format(pod.metadata.namespace, pod.metadata.name))
         return False
     if pod.metadata.owner_references is None:
         return True
     for ref in pod.metadata.owner_references:
         if ref.controller is not None and ref.controller:
             if ref.kind == CONTROLLER_KIND_DAEMON_SET:
-                logger.info("Skipping DaemonSet %s/%s", pod.metadata.namespace, pod.metadata.name)
+                logger.info("Skipping DaemonSet {}/{}".format(pod.metadata.namespace, pod.metadata.name))
                 return False
     return True
 
@@ -55,7 +55,8 @@ def pod_is_evictable(pod):
 def get_evictable_pods(api, node_name):
     field_selector = 'spec.nodeName=' + node_name
     pods = api.list_pod_for_all_namespaces(watch=False, field_selector=field_selector, include_uninitialized=True)
-    return list(filter(pod_is_evictable, pods.items))
+    return [pod for pod in pods.items if pod_is_evictable(pod)]
+
 
 def evict_until_completed(api, pods, poll):
     pending = pods
@@ -84,11 +85,11 @@ def evict_pods(api, pods):
         except ApiException as err:
             if err.status == 429:
                 remaining.append(pod)
-                logger.warning("Pod %s in namespace %s could not be evicted due to disruption budget. Will retry.", pod.metadata.name, pod.metadata.namespace)
+                logger.warning("Pod {}/{} could not be evicted due to disruption budget. Will retry.".format(pod.metadata.namespace, pod.metadata.name))
             else:
-                logger.exception("Unexpected error adding eviction for pod %s in namespace %s", pod.metadata.name, pod.metadata.namespace)
+                logger.exception("Unexpected error adding eviction for pod {}/{}".format(pod.metadata.namespace, pod.metadata.name))
         except:
-            logger.exception("Unexpected error adding eviction for pod %s in namespace %s", pod.metadata.name, pod.metadata.namespace)
+            logger.exception("Unexpected error adding eviction for pod {}/{}".format(pod.metadata.namespace, pod.metadata.name))
     return remaining
 
 
@@ -99,7 +100,7 @@ def wait_until_empty(api, node_name, poll):
         if len(pods) <= 0:
             logger.info("All pods evicted successfully")
             return
-        logger.debug("Still waiting for deletion of the following pods: %s", ", ".join(map(lambda pod: pod.metadata.namespace + "/" + pod.metadata.name, pods)))
+        logger.debug("Still waiting for deletion of the following pods: {}".format(", ".join(map(lambda pod: pod.metadata.namespace + "/" + pod.metadata.name, pods))))
         time.sleep(poll)
 
 
