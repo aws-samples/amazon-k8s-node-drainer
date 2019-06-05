@@ -57,14 +57,13 @@ def test_remove_all_pods(mocker):
         }
         }
     ]})
+    empty_list_pods_val = dict_to_simple_namespace({'items': []})
 
-    mock_api = mocker.Mock(**{'list_pod_for_all_namespaces.return_value': list_pods_val,
-                              'read_namespaced_pod.side_effect': ApiException(status=404)}
-                           )
+    mock_api = mocker.Mock(**{'list_pod_for_all_namespaces.side_effect': [list_pods_val, empty_list_pods_val]})
 
     remove_all_pods(mock_api, 'test_node')
 
-    mock_api.list_pod_for_all_namespaces.assert_called_with(watch=False, field_selector='spec.nodeName=test_node')
+    mock_api.list_pod_for_all_namespaces.assert_called_with(watch=False, include_uninitialized=True, field_selector='spec.nodeName=test_node')
 
     mock_arg = {
         'apiVersion': 'policy/v1beta1',
@@ -99,15 +98,15 @@ def test_remove_disruption_failure(mocker):
         }
         }
     ]})
+    empty_list_pods_val = dict_to_simple_namespace({'items': []})
 
-    mock_api = mocker.Mock(**{'list_pod_for_all_namespaces.return_value': list_pods_val,
-                              'create_namespaced_pod_eviction.side_effect': [ApiException(status=429), None],
-                              'read_namespaced_pod.side_effect': ApiException(status=404)}
+    mock_api = mocker.Mock(**{'list_pod_for_all_namespaces.side_effect': [list_pods_val, empty_list_pods_val],
+                              'create_namespaced_pod_eviction.side_effect': [ApiException(status=429), None]}
                            )
 
     remove_all_pods(mock_api, 'test_node', poll=1)
 
-    mock_api.list_pod_for_all_namespaces.assert_called_with(watch=False, field_selector='spec.nodeName=test_node')
+    mock_api.list_pod_for_all_namespaces.assert_called_with(watch=False, include_uninitialized=True, field_selector='spec.nodeName=test_node')
 
     mock_arg = {
         'apiVersion': 'policy/v1beta1',
@@ -124,6 +123,7 @@ def test_remove_disruption_failure(mocker):
         call('test_pod1-eviction', 'test_ns', mock_arg)]
     )
 
+
 def test_remove_pending(mocker):
     list_pods_val = dict_to_simple_namespace({'items': [
         {'metadata': {
@@ -133,14 +133,17 @@ def test_remove_pending(mocker):
         }
         }
     ]})
+    empty_list_pods_val = dict_to_simple_namespace({'items': []})
 
-    mock_api = mocker.Mock(**{'list_pod_for_all_namespaces.return_value': list_pods_val,
-                              'read_namespaced_pod.side_effect': [list_pods_val.items[0], ApiException(status=404)]}
-                           )
+    mock_api = mocker.Mock(**{'list_pod_for_all_namespaces.side_effect': [list_pods_val, list_pods_val, empty_list_pods_val]})
 
     remove_all_pods(mock_api, 'test_node', poll=1)
 
-    mock_api.list_pod_for_all_namespaces.assert_called_with(watch=False, field_selector='spec.nodeName=test_node')
+    mock_api.list_pod_for_all_namespaces.assert_has_calls([
+        call(watch=False, include_uninitialized=True, field_selector='spec.nodeName=test_node'),
+        call(watch=False, include_uninitialized=True, field_selector='spec.nodeName=test_node'),
+        call(watch=False, include_uninitialized=True, field_selector='spec.nodeName=test_node')
+    ])
 
     mock_arg = {
         'apiVersion': 'policy/v1beta1',
@@ -154,9 +157,5 @@ def test_remove_pending(mocker):
 
     mock_api.create_namespaced_pod_eviction.assert_any_call('test_pod1-eviction', 'test_ns', mock_arg)
 
-    mock_api.read_namespaced_pod.assert_has_calls([
-        call('test_pod1', 'test_ns'),
-        call('test_pod1', 'test_ns')]
-    )
 
 
