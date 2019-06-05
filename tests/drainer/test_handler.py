@@ -50,12 +50,16 @@ def mock_k8s_client(mocker):
         {'metadata': {
             'uid': 'aaa',
             'name': 'test_pod1',
-            'namespace': 'test_ns'
+            'namespace': 'test_ns',
+            'annotations': None,
+            'owner_references': None
         }
         }, {'metadata': {
             'uid': 'bbb',
             'name': 'test_pod2',
-            'namespace': 'test_ns'
+            'namespace': 'test_ns',
+            'annotations': None,
+            'owner_references': None
         }
         }
     ]})
