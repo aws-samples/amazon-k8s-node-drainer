@@ -59,13 +59,13 @@ def mock_k8s_client(mocker):
         }
         }
     ]})
+    empty_list_pods_val = dict_to_simple_namespace({'items': []})
 
     list_node_val = dict_to_simple_namespace({'items': [{'metadata': {'name': 'test_node'}}]})
 
-    mock_api = mocker.Mock(**{'list_pod_for_all_namespaces.return_value': list_pods_val,
+    mock_api = mocker.Mock(**{'list_pod_for_all_namespaces.side_effect': [list_pods_val, empty_list_pods_val],
                               'list_node.return_value': list_node_val,
-                              'patch_node.return_value': mocker.Mock(),
-                              'read_namespaced_pod.side_effect': ApiException(status=404)}
+                              'patch_node.return_value': mocker.Mock()}
                            )
 
     class Configuration:
@@ -225,6 +225,7 @@ def test_handler(mocker, monkeypatch, patched_handler, mock_k8s_client, mock_eve
 
     mock_k8s_client.CoreV1Api.return_value.patch_node.assert_called_with('test_node', mocker.ANY)
     mock_k8s_client.CoreV1Api.return_value.list_pod_for_all_namespaces.assert_called_with(watch=False,
+                                                                                          include_uninitialized=True,
                                                                                           field_selector='spec.nodeName=test_node')
     assert mock_k8s_client.CoreV1Api.return_value.create_namespaced_pod_eviction.call_count == 2
 

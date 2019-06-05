@@ -7,7 +7,6 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-
 def cordon_node(api, node_name):
     """Marks the specified node as unschedulable, which means that no new pods can be launched on the
     node by the Kubernetes scheduler.
@@ -28,19 +27,23 @@ def cordon_node(api, node_name):
 
 def remove_all_pods(api, node_name, poll=5):
     """Removes all Kubernetes pods from the specified node."""
-    field_selector = 'spec.nodeName=' + node_name
-    pods = api.list_pod_for_all_namespaces(watch=False, field_selector=field_selector)
+    pods = get_pods_on_node(api, node_name)
 
     logger.debug('Number of pods to delete: ' + str(len(pods.items)))
 
-    try_until_completed(api, evict_pods, pods, poll)
-    try_until_completed(api, get_pending, pods, poll)
+    evict_until_completed(api, pods, poll)
+    wait_until_empty(api, node_name, poll)
 
 
-def try_until_completed(api, action, pods, poll):
+def get_pods_on_node(api, node_name):
+    field_selector = 'spec.nodeName=' + node_name
+    return api.list_pod_for_all_namespaces(watch=False, field_selector=field_selector, include_uninitialized=True)
+
+
+def evict_until_completed(api, pods, poll):
     pending = pods.items
-    while len(pending) > 0:
-        pending = action(api, pending)
+    while True:
+        pending = evict_pods(api, pending)
         if (len(pending)) <= 0:
             return
         time.sleep(poll)
@@ -72,26 +75,15 @@ def evict_pods(api, pods):
     return remaining
 
 
-def get_pending(api, pods):
-    pending = []
-    for old_pod in pods:
-        try:
-            current_pod = api.read_namespaced_pod(old_pod.metadata.name, old_pod.metadata.namespace)
-            if current_pod.metadata.uid == old_pod.metadata.uid:
-                logger.debug("Pod %s in namespace %s is still awaiting deletion", old_pod.metadata.name, old_pod.metadata.namespace)
-                pending.append(old_pod)
-            else:
-                logger.info("Eviction successful: %s in namespace %s", old_pod.metadata.name, old_pod.metadata.namespace)
-        except ApiException as err:
-            if err.status == 404:
-                logger.info("Eviction successful: %s in namespace %s", old_pod.metadata.name, old_pod.metadata.namespace)
-            else:
-                pending.append(old_pod)
-                logger.exception("Unexpected error waiting for pod %s in namespace %s", old_pod.metadata.name, old_pod.metadata.namespace)
-        except:
-            logger.exception("Unexpected error waiting for pod %s in namespace %s", old_pod.metadata.name, old_pod.metadata.namespace)
-            pending.append(old_pod)
-    return pending
+def wait_until_empty(api, node_name, poll):
+    logger.info("Waiting for evictions to complete")
+    while True:
+        pods = get_pods_on_node(api, node_name)
+        if len(pods.items) <= 0:
+            logger.info("All pods evicted successfully")
+            return
+        logger.debug("Still waiting for deletion of the following pods: %s", ", ".join(map(lambda pod: pod.metadata.namespace + "/" + pod.metadata.name, pods.items)))
+        time.sleep(poll)
 
 
 def node_exists(api, node_name):
