@@ -48,21 +48,29 @@ def mock_k8s_client_no_nodes(mocker):
 def mock_k8s_client(mocker):
     list_pods_val = dict_to_simple_namespace({'items': [
         {'metadata': {
+            'uid': 'aaa',
             'name': 'test_pod1',
-            'namespace': 'test_ns'
+            'namespace': 'test_ns',
+            'annotations': None,
+            'owner_references': None
         }
         }, {'metadata': {
+            'uid': 'bbb',
             'name': 'test_pod2',
-            'namespace': 'test_ns'
+            'namespace': 'test_ns',
+            'annotations': None,
+            'owner_references': None
         }
         }
     ]})
+    empty_list_pods_val = dict_to_simple_namespace({'items': []})
 
     list_node_val = dict_to_simple_namespace({'items': [{'metadata': {'name': 'test_node'}}]})
 
-    mock_api = mocker.Mock(**{'list_pod_for_all_namespaces.return_value': list_pods_val,
+    mock_api = mocker.Mock(**{'list_pod_for_all_namespaces.side_effect': [list_pods_val, empty_list_pods_val],
                               'list_node.return_value': list_node_val,
-                              'patch_node.return_value': mocker.Mock()})
+                              'patch_node.return_value': mocker.Mock()}
+                           )
 
     class Configuration:
 
@@ -221,6 +229,7 @@ def test_handler(mocker, monkeypatch, patched_handler, mock_k8s_client, mock_eve
 
     mock_k8s_client.CoreV1Api.return_value.patch_node.assert_called_with('test_node', mocker.ANY)
     mock_k8s_client.CoreV1Api.return_value.list_pod_for_all_namespaces.assert_called_with(watch=False,
+                                                                                          include_uninitialized=True,
                                                                                           field_selector='spec.nodeName=test_node')
     assert mock_k8s_client.CoreV1Api.return_value.create_namespaced_pod_eviction.call_count == 2
 

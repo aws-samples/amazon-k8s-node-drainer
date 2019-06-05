@@ -12,7 +12,7 @@ Parameters:
 
 Globals:
     Function:
-        Timeout: 30
+        Timeout: 300
 
 Resources:
 
@@ -20,7 +20,7 @@ Resources:
       Type: AWS::AutoScaling::LifecycleHook
       Properties:
         AutoScalingGroupName: !Ref AutoScalingGroup
-        HeartbeatTimeout: 300
+        HeartbeatTimeout: 450
         LifecycleTransition: autoscaling:EC2_INSTANCE_TERMINATING
 
     DrainerRole:
