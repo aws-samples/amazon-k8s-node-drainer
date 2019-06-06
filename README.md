@@ -23,7 +23,7 @@ NB: The lambda function created assumes that the Amazon EKS cluster's Kubernetes
 enabled, if your endpoint only has private access enabled then you must modify the `template.yml` file to ensure the 
 lambda function is running in the correct VPC and subnet.
 
-This lambda can also be used against a non-EKS kubernetes cluster, reading a kubeconfig file from an S3 bucket
+This lambda can also be used against a non-EKS Kubernetes cluster by reading a `kubeconfig` file from an S3 bucket
 specified by the `KUBE_CONFIG_BUCKET` and `KUBE_CONFIG_OBJECT` environment variables. If `CLUSTER_NAME` is not passed as
 an environment variable then IAM authenticator signatures will also not be added to kubernetes API requests. At present
 no example for this is provided.
