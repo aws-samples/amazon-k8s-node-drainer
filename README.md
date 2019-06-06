@@ -24,7 +24,7 @@ enabled, if your endpoint only has private access enabled then you must modify t
 lambda function is running in the correct VPC and subnet.
 
 This lambda can also be used against a non-EKS kubernetes cluster, reading a kubeconfig file from an S3 bucket
-specified by the KUBE\_CONFIG\_BUCKET and KUBE\_CONFIG\_OBJECT environment variables. If CLUSTER\_NAME is not passed as
+specified by the `KUBE_CONFIG_BUCKET` and `KUBE_CONFIG_OBJECT` environment variables. If `CLUSTER_NAME` is not passed as
 an environment variable then IAM authenticator signatures will also not be added to kubernetes API requests. At present
 no example for this is provided.
 
