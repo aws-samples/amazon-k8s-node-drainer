@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/aws-samples/amazon-eks-node-drainer.svg?branch=master)](https://travis-ci.org/aws-samples/amazon-eks-node-drainer)
+[![Build Status](https://travis-ci.org/aws-samples/amazon-k8s-node-drainer.svg?branch=master)](https://travis-ci.org/aws-samples/amazon-k8s-node-drainer)
 
 # Amazon EKS Node Drainer
 
