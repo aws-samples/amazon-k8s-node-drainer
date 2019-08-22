@@ -2,26 +2,28 @@
 
 # Amazon EKS Node Drainer
 
-This sample code provides a means to gracefully terminate nodes of an Amazon Elastic Container Service for Kubernetes 
+This sample code provides a means to gracefully terminate nodes of an Amazon Elastic Container Service for Kubernetes
 (Amazon EKS) cluster when managed as part of an Amazon EC2 Auto Scaling Group.
 
 The code provides an AWS Lambda function that integrates as an [Amazon EC2 Auto
 Scaling Lifecycle Hook](https://docs.aws.amazon.com/autoscaling/ec2/userguide/lifecycle-hooks.html).
-When called, the Lambda function calls the Kubernetes API to cordon and evict all evictable pods from the node being 
+When called, the Lambda function calls the Kubernetes API to cordon and evict all evictable pods from the node being
 terminated. It will then wait until all pods have been evicted before the Auto Scaling group continues to terminate the
 EC2 instance. The lambda may be killed by the function timeout before all evictions complete successfully, in which case
 the lifecycle hook may re-execute the lambda to try again. If the lifecycle heartbeat expires then termination of the EC2
 instance will continue regardless of whether or not draining was successful. You may need to increase the function and
 heartbeat timeouts in template.yaml if you have very long grace periods.
 
-Using this approach can minimise disruption to the services running in your cluster by allowing Kubernetes to 
-reschedule the pod prior to the instance being terminated enters the TERMINATING state. It works by using 
+Using this approach can minimise disruption to the services running in your cluster by allowing Kubernetes to
+reschedule the pod prior to the instance being terminated enters the TERMINATING state. It works by using
 [Amazon EC2 Auto Scaling Lifecycle Hooks](https://docs.aws.amazon.com/autoscaling/ec2/userguide/lifecycle-hooks.html)
 to trigger an AWS Lambda function that uses the Kubernetes API to cordon the node and evict the pods.
 
-NB: The lambda function created assumes that the Amazon EKS cluster's Kubernetes API server endpoint has public access 
-enabled, if your endpoint only has private access enabled then you must modify the `template.yml` file to ensure the 
+NB: The lambda function created assumes that the Amazon EKS cluster's Kubernetes API server endpoint has public access
+enabled, if your endpoint only has private access enabled then you must modify the `template.yml` file to ensure the
 lambda function is running in the correct VPC and subnet.
+
+The lambda function listen by default for cloudwatch events. If you want to use SQS events, set `USE_SQS_EVENTS` environment variable.
 
 Below is a brief explanation of the folder structure of the project:
 
@@ -73,7 +75,7 @@ AWS Lambda Python runtime requires a flat folder with all dependencies including
             ...
 ```
 
-Firstly, we need a `S3 bucket` where we can upload our Lambda functions packaged as ZIP before we deploy anything - If 
+Firstly, we need a `S3 bucket` where we can upload our Lambda functions packaged as ZIP before we deploy anything - If
 you don't have a S3 bucket to store code artifacts then this is a good time to create one:
 
 *Note: The S3 bucket needs to be in the AWS region used to deploy the Lambda.*
@@ -107,7 +109,7 @@ There is a convenience script in the root directory called `build_deploy.sh` tha
 wraps these three commands and takes your AWS profile as an argument (it will use the default profile
 if a profile is not provided) and the S3 bucket created above.
 ```bash
-./build_deploy.sh 
+./build_deploy.sh
     ${BUCKET_NAME} \
     ${YOUR_AUTOSCALING_GROUP_NAME} \
     ${YOUR_CLUSTER_NAME} \
@@ -120,24 +122,24 @@ After deployment is complete you can run the following command to retrieve the A
 aws cloudformation describe-stacks \
     --stack-name k8s-drainer \
     --output table
-``` 
+```
 
 ## Kubernetes Permissions
 
-After deployment there will be an IAM role associated with the lambda that needs to be mapped to a user or group in 
-the EKS cluster. To create the Kubernetes `ClusterRole` and `ClusterRoleBinding` run the following shell command from the root 
+After deployment there will be an IAM role associated with the lambda that needs to be mapped to a user or group in
+the EKS cluster. To create the Kubernetes `ClusterRole` and `ClusterRoleBinding` run the following shell command from the root
 directory of the project:
 
 ```bash
 kubectl apply -R -f k8s_rbac/
 ```
 
-You may now create the mapping to the IAM role created when deploying the Drainer function. 
+You may now create the mapping to the IAM role created when deploying the Drainer function.
 You can find this role by checking the `DrainerRole` output of the CloudFormation stack created by the `sam deploy`
 command above. Run `kubectl edit -n kube-system configmap/aws-auth` and add the following `yaml`:
 
 ```yaml
-mapRoles: | 
+mapRoles: |
 # ...
     - rolearn: <DrainerFunction IAM role>
       username: lambda
@@ -214,7 +216,7 @@ By default, built artifacts are written to the `.aws-sam/build` directory.
 
 ## Limitations
 
-This solution works on a per cluster per autoscaling group basis, multiple autoscaling groups will require a separate 
+This solution works on a per cluster per autoscaling group basis, multiple autoscaling groups will require a separate
 deployment for each group.
 
 Certain types of pod cannot be evicted from a node, so this lambda will not attempt to evict DaemonSets or mirror pods.

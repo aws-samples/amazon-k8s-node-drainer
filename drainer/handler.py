@@ -4,6 +4,7 @@ import logging
 import os.path
 import re
 import yaml
+import json
 
 from botocore.signers import RequestSigner
 import kubernetes as k8s
@@ -107,20 +108,38 @@ def get_bearer_token(cluster, region):
     # https://github.com/kubernetes-sigs/aws-iam-authenticator/issues/202
     return 'k8s-aws-v1.' + re.sub(r'=*', '', base64_url)
 
+def _handle_event(event, k8s_api):
+    lifecycle_hook_name = event['LifecycleHookName']
+    auto_scaling_group_name = event['AutoScalingGroupName']
+    instance_id = event['EC2InstanceId']
+
+    instance = ec2.describe_instances(InstanceIds=[instance_id])['Reservations'][0]['Instances'][0]
+
+    node_name = instance['PrivateDnsName']
+    logger.info('Node name: ' + node_name)
+
+    try:
+        if not node_exists(k8s_api, node_name):
+            logger.error('Node not found.')
+            abandon_lifecycle_action(asg, auto_scaling_group_name, lifecycle_hook_name, instance_id)
+            return
+
+        cordon_node(k8s_api, node_name)
+
+        remove_all_pods(k8s_api, node_name)
+
+        asg.complete_lifecycle_action(LifecycleHookName=lifecycle_hook_name,
+                                      AutoScalingGroupName=auto_scaling_group_name,
+                                      LifecycleActionResult='CONTINUE',
+                                      InstanceId=instance_id)
+    except ApiException:
+        logger.exception('There was an error removing the pods from the node {}'.format(node_name))
+        abandon_lifecycle_action(asg, auto_scaling_group_name, lifecycle_hook_name, instance_id)
 
 def _lambda_handler(k8s_config, k8s_client, event):
     if not os.path.exists(KUBE_FILEPATH):
         logger.info('No kubeconfig file found. Generating...')
         create_kube_config(eks)
-
-    lifecycle_hook_name = event['detail']['LifecycleHookName']
-    auto_scaling_group_name = event['detail']['AutoScalingGroupName']
-
-    instance_id = event['detail']['EC2InstanceId']
-    instance = ec2.describe_instances(InstanceIds=[instance_id])['Reservations'][0]['Instances'][0]
-
-    node_name = instance['PrivateDnsName']
-    logger.info('Node name: ' + node_name)
 
     # Configure
     k8s_config.load_kube_config(KUBE_FILEPATH)
@@ -131,24 +150,11 @@ def _lambda_handler(k8s_config, k8s_client, event):
     api = k8s_client.ApiClient(configuration)
     v1 = k8s_client.CoreV1Api(api)
 
-    try:
-        if not node_exists(v1, node_name):
-            logger.error('Node not found.')
-            abandon_lifecycle_action(asg, auto_scaling_group_name, lifecycle_hook_name, instance_id)
-            return
-
-        cordon_node(v1, node_name)
-
-        remove_all_pods(v1, node_name)
-
-        asg.complete_lifecycle_action(LifecycleHookName=lifecycle_hook_name,
-                                      AutoScalingGroupName=auto_scaling_group_name,
-                                      LifecycleActionResult='CONTINUE',
-                                      InstanceId=instance_id)
-    except ApiException:
-        logger.exception('There was an error removing the pods from the node {}'.format(node_name))
-        abandon_lifecycle_action(asg, auto_scaling_group_name, lifecycle_hook_name, instance_id)
-
+    if 'USE_SQS_EVENTS' in os.environ:
+        for record in event['Records']:
+            _handle_event(json.loads(record['body']), v1)
+    else:
+        _handle_event(event['detail'], v1)
 
 def lambda_handler(event, _):
     return _lambda_handler(k8s.config, k8s.client, event)
