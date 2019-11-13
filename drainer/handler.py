@@ -64,9 +64,11 @@ def create_kube_config(eks):
     with open(KUBE_FILEPATH, 'w') as f:
         yaml.dump(kube_config, f, default_flow_style=False)
 
+
 def get_kube_config(s3):
     """Downloads the Kubernetes config file from S3."""
     s3.download_file(KUBE_CONFIG_BUCKET, KUBE_CONFIG_OBJECT, KUBE_FILEPATH)
+
 
 def get_bearer_token(cluster, region):
     """Creates the authentication to token required by AWS IAM Authenticator. This is
@@ -135,7 +137,7 @@ def _lambda_handler(k8s_config, k8s_client, event):
     # Configure
     k8s_config.load_kube_config(KUBE_FILEPATH)
     configuration = k8s_client.Configuration()
-    if CLUSTER_NAME:
+    if not KUBE_CONFIG_BUCKET:
         configuration.api_key['authorization'] = get_bearer_token(CLUSTER_NAME, REGION)
         configuration.api_key_prefix['authorization'] = 'Bearer'
     # API
