@@ -26,7 +26,7 @@ lambda function is running in the correct VPC and subnet.
 This lambda can also be used against a non-EKS Kubernetes cluster by reading a `kubeconfig` file from an S3 bucket
 specified by the `KUBE_CONFIG_BUCKET` and `KUBE_CONFIG_OBJECT` environment variables. If these two variables are passed 
 in then Drainer function will assume this is a non-EKS cluster and the IAM authenticator signatures will _not_ be added 
-to kubernetes API requests. It is recommended to apply the principle of least privilege to the IAM role that governs
+to Kubernetes API requests. It is recommended to apply the principle of least privilege to the IAM role that governs
 access between the Lambda function and S3 bucket.
 
 Below is a brief explanation of the folder structure of the project:
