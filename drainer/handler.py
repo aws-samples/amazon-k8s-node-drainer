@@ -15,17 +15,17 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 KUBE_FILEPATH = '/tmp/kubeconfig'
-CLUSTER_NAME = os.environ['CLUSTER_NAME']
 REGION = os.environ['AWS_REGION']
 
 eks = boto3.client('eks', region_name=REGION)
 ec2 = boto3.client('ec2', region_name=REGION)
 asg = boto3.client('autoscaling', region_name=REGION)
+s3 = boto3.client('s3', region_name=REGION)
 
 
-def create_kube_config(eks):
+def create_kube_config(eks, cluster_name):
     """Creates the Kubernetes config file required when instantiating the API client."""
-    cluster_info = eks.describe_cluster(name=CLUSTER_NAME)['cluster']
+    cluster_info = eks.describe_cluster(name=cluster_name)['cluster']
     certificate = cluster_info['certificateAuthority']['data']
     endpoint = cluster_info['endpoint']
 
@@ -108,15 +108,23 @@ def get_bearer_token(cluster, region):
     return 'k8s-aws-v1.' + re.sub(r'=*', '', base64_url)
 
 
-def _lambda_handler(k8s_config, k8s_client, event):
+def _lambda_handler(env, k8s_config, k8s_client, event):
+    kube_config_bucket = env['kube_config_bucket']
+    cluster_name = env['cluster_name']
+
     if not os.path.exists(KUBE_FILEPATH):
-        logger.info('No kubeconfig file found. Generating...')
-        create_kube_config(eks)
+        if kube_config_bucket:
+            logger.info('No kubeconfig file found. Downloading...')
+            s3.download_file(kube_config_bucket, env['kube_config_object'], KUBE_FILEPATH)
+        else:
+            logger.info('No kubeconfig file found. Generating...')
+            create_kube_config(eks, cluster_name)
 
     lifecycle_hook_name = event['detail']['LifecycleHookName']
     auto_scaling_group_name = event['detail']['AutoScalingGroupName']
 
     instance_id = event['detail']['EC2InstanceId']
+    logger.info('Instance ID: ' + instance_id)
     instance = ec2.describe_instances(InstanceIds=[instance_id])['Reservations'][0]['Instances'][0]
 
     node_name = instance['PrivateDnsName']
@@ -125,8 +133,9 @@ def _lambda_handler(k8s_config, k8s_client, event):
     # Configure
     k8s_config.load_kube_config(KUBE_FILEPATH)
     configuration = k8s_client.Configuration()
-    configuration.api_key['authorization'] = get_bearer_token(CLUSTER_NAME, REGION)
-    configuration.api_key_prefix['authorization'] = 'Bearer'
+    if not kube_config_bucket:
+        configuration.api_key['authorization'] = get_bearer_token(cluster_name, REGION)
+        configuration.api_key_prefix['authorization'] = 'Bearer'
     # API
     api = k8s_client.ApiClient(configuration)
     v1 = k8s_client.CoreV1Api(api)
@@ -151,4 +160,9 @@ def _lambda_handler(k8s_config, k8s_client, event):
 
 
 def lambda_handler(event, _):
-    return _lambda_handler(k8s.config, k8s.client, event)
+    env = {
+        'cluster_name': os.environ.get('CLUSTER_NAME'),
+        'kube_config_bucket': os.environ.get('KUBE_CONFIG_BUCKET'),
+        'kube_config_object': os.environ.get('KUBE_CONFIG_OBJECT')
+    }
+    return _lambda_handler(env, k8s.config, k8s.client, event)
