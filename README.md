@@ -89,9 +89,10 @@ aws s3 mb s3://${BUCKET_NAME}
 ```
 
 
-Run the following command to package our Lambda function to S3:
+Run the following commands to build and package our Lambda function to S3:
 
 ```bash
+sam build --use-container --skip-pull-image
 sam package \
     --output-template-file packaged.yaml \
     --s3-bucket ${BUCKET_NAME}
