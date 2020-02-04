@@ -37,7 +37,7 @@ Below is a brief explanation of the folder structure of the project:
 ├── build_deploy.sh             <-- Deployment script
 ├── drainer                     <-- Source code for the lambda function
 │   ├── __init__.py
-│   ├── drainer.py              <-- Lambda function code
+│   ├── handler.py              <-- Lambda function code
 │   ├── requirements.txt        <-- Lambda Python dependencies
 │   ├── k8s_utils.py
 ├── k8s_rbac/                   <-- Kubernetes RBAC configuration
