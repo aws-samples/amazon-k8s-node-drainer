@@ -147,10 +147,8 @@ def _lambda_handler(k8s_config, k8s_client, event):
     # API
     api = k8s_client.ApiClient(configuration)
     v1 = k8s_client.CoreV1Api(api)
-    versionAPI = k8s_client.VersionApi(api_client=k8s_config.load_kube_config(KUBE_FILEPATH))
-    k8s_version = versionAPI.get_code()
-
-
+    version_api = k8s_client.VersionApi(api_client=k8s_config.load_kube_config(KUBE_FILEPATH))
+    k8s_version = version_api.get_code()
 
     try:
         if not node_exists(v1, node_name):
