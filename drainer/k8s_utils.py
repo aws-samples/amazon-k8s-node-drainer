@@ -6,7 +6,6 @@ from kubernetes.client.rest import ApiException
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-MIRROR_POD_ANNOTATION_KEY = "kubernetes.io/config.mirror"
 CONTROLLER_KIND_DAEMON_SET = "DaemonSet"
 
 
@@ -28,20 +27,17 @@ def cordon_node(api, node_name):
     api.patch_node(node_name, patch_body)
 
 
-def remove_all_pods(api, node_name, poll=5):
+def remove_all_pods(api, node_name, k8s_version, poll=5):
     """Removes all Kubernetes pods from the specified node."""
-    pods = get_evictable_pods(api, node_name)
+    pods = get_pods_on_node(api, node_name)
 
     logger.debug('Number of pods to delete: ' + str(len(pods)))
 
-    evict_until_completed(api, pods, poll)
+    evict_until_completed(api, pods, k8s_version, poll)
     wait_until_empty(api, node_name, poll)
 
 
 def pod_is_evictable(pod):
-    if pod.metadata.annotations is not None and pod.metadata.annotations.get(MIRROR_POD_ANNOTATION_KEY):
-        logger.info("Skipping mirror pod {}/{}".format(pod.metadata.namespace, pod.metadata.name))
-        return False
     if pod.metadata.owner_references is None:
         return True
     for ref in pod.metadata.owner_references:
@@ -52,25 +48,26 @@ def pod_is_evictable(pod):
     return True
 
 
-def get_evictable_pods(api, node_name):
+def get_pods_on_node(api, node_name):
     field_selector = 'spec.nodeName=' + node_name
     pods = api.list_pod_for_all_namespaces(watch=False, field_selector=field_selector, include_uninitialized=True)
     return [pod for pod in pods.items if pod_is_evictable(pod)]
 
 
-def evict_until_completed(api, pods, poll):
+def evict_until_completed(api, pods, k8s_version, poll):
     pending = pods
     while True:
-        pending = evict_pods(api, pending)
+        pending = evict_pods(api, pending, k8s_version)
         if (len(pending)) <= 0:
             return
         time.sleep(poll)
 
 
-def evict_pods(api, pods):
+def evict_pods(api, pods, k8s_version):
     remaining = []
     for pod in pods:
-        logger.info('Evicting pod {} in namespace {}'.format(pod.metadata.name, pod.metadata.namespace))
+        logger.info('Evicting pod {} in namespace {}'.format(
+            pod.metadata.name, pod.metadata.namespace))
         body = {
             'apiVersion': 'policy/v1beta1',
             'kind': 'Eviction',
@@ -81,26 +78,35 @@ def evict_pods(api, pods):
             }
         }
         try:
-            api.create_namespaced_pod_eviction(pod.metadata.name + '-eviction', pod.metadata.namespace, body)
+            if int(k8s_version.minor) < 16:
+                api.create_namespaced_pod_eviction(
+                    pod.metadata.name + '-eviction', pod.metadata.namespace, body)
+            else:
+                api.create_namespaced_pod_eviction(
+                    pod.metadata.name, pod.metadata.namespace, body)
         except ApiException as err:
             if err.status == 429:
                 remaining.append(pod)
-                logger.warning("Pod {}/{} could not be evicted due to disruption budget. Will retry.".format(pod.metadata.namespace, pod.metadata.name))
+                logger.warning("Pod %s in namespace %s could not be evicted due to disruption budget. Will retry.",
+                               pod.metadata.name, pod.metadata.namespace)
             else:
-                logger.exception("Unexpected error adding eviction for pod {}/{}".format(pod.metadata.namespace, pod.metadata.name))
+                logger.exception("Unexpected error adding eviction for pod %s in namespace %s",
+                                 pod.metadata.name, pod.metadata.namespace)
         except:
-            logger.exception("Unexpected error adding eviction for pod {}/{}".format(pod.metadata.namespace, pod.metadata.name))
+            logger.exception("Unexpected error adding eviction for pod %s in namespace %s",
+                             pod.metadata.name, pod.metadata.namespace)
     return remaining
 
 
 def wait_until_empty(api, node_name, poll):
     logger.info("Waiting for evictions to complete")
     while True:
-        pods = get_evictable_pods(api, node_name)
+        pods = get_pods_on_node(api, node_name)
         if len(pods) <= 0:
             logger.info("All pods evicted successfully")
             return
-        logger.debug("Still waiting for deletion of the following pods: {}".format(", ".join(map(lambda pod: pod.metadata.namespace + "/" + pod.metadata.name, pods))))
+        logger.debug("Still waiting for deletion of the following pods: %s", ", ".join(
+            map(lambda pod: pod.metadata.namespace + "/" + pod.metadata.name, pods)))
         time.sleep(poll)
 
 
