@@ -6,6 +6,7 @@ from kubernetes.client.rest import ApiException
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
+MIRROR_POD_ANNOTATION_KEY = "kubernetes.io/config.mirror"
 CONTROLLER_KIND_DAEMON_SET = "DaemonSet"
 
 
@@ -38,6 +39,9 @@ def remove_all_pods(api, node_name, k8s_version, poll=5):
 
 
 def pod_is_evictable(pod):
+    if pod.metadata.annotations is not None and pod.metadata.annotations.get(MIRROR_POD_ANNOTATION_KEY):
+        logger.info("Skipping mirror pod {}/{}".format(pod.metadata.namespace, pod.metadata.name))
+        return False
     if pod.metadata.owner_references is None:
         return True
     for ref in pod.metadata.owner_references:
