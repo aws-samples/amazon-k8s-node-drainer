@@ -54,7 +54,7 @@ def pod_is_evictable(pod):
 
 def get_pods_on_node(api, node_name):
     field_selector = 'spec.nodeName=' + node_name
-    pods = api.list_pod_for_all_namespaces(watch=False, field_selector=field_selector, include_uninitialized=True)
+    pods = api.list_pod_for_all_namespaces(watch=False, field_selector=field_selector)
     return [pod for pod in pods.items if pod_is_evictable(pod)]
 
 
@@ -116,7 +116,7 @@ def wait_until_empty(api, node_name, poll):
 
 def node_exists(api, node_name):
     """Determines whether the specified node is still part of the cluster."""
-    nodes = api.list_node(include_uninitialized=True, pretty=True).items
+    nodes = api.list_node(pretty=True).items
     node = next((n for n in nodes if n.metadata.name == node_name), None)
     return False if not node else True
 
