@@ -65,7 +65,7 @@ def test_remove_all_pods(mocker):
 
     mock_api = mocker.Mock(**{'list_pod_for_all_namespaces.side_effect': [list_pods_val, empty_list_pods_val]})
 
-    remove_all_pods(mock_api, 'test_node')
+    remove_all_pods(mock_api, 'test_node', '1.15')
 
     mock_api.list_pod_for_all_namespaces.assert_called_with(watch=False, include_uninitialized=True, field_selector='spec.nodeName=test_node')
 
@@ -92,6 +92,58 @@ def test_remove_all_pods(mocker):
     mock_api.create_namespaced_pod_eviction.assert_any_call('test_pod1-eviction', 'test_ns', mock_arg)
     mock_api.create_namespaced_pod_eviction.assert_any_call('test_pod2-eviction', 'test_ns', mock_arg1)
 
+# Ensures that the eviction name is compatible for >= 1.16
+def test_remove_all_pods_for_newer_than_k8s_1_15(mocker):
+    list_pods_val = dict_to_simple_namespace({'items': [
+        {'metadata': {
+            'uid': 'aaa',
+            'name': 'test_pod1',
+            'namespace': 'test_ns',
+            'annotations': None,
+            'owner_references': None
+        }
+        }, {'metadata': {
+            'uid': 'bbb',
+            'name': 'test_pod2',
+            'namespace': 'test_ns',
+            'annotations': None,
+            'owner_references': None
+        }
+        }
+    ]})
+
+    empty_list_pods_val = dict_to_simple_namespace({'items': []})
+
+    mock_api = mocker.Mock(**{'list_pod_for_all_namespaces.side_effect': [list_pods_val, empty_list_pods_val]})
+
+    remove_all_pods(mock_api, 'test_node', '1.16')
+
+    mock_api.list_pod_for_all_namespaces.assert_called_with(watch=False, include_uninitialized=True, field_selector='spec.nodeName=test_node')
+
+    mock_arg = {
+        'apiVersion': 'policy/v1beta1',
+        'kind': 'Eviction',
+        'deleteOptions': {},
+        'metadata': {
+            'name': 'test_pod1',
+            'namespace': 'test_ns'
+        }
+    }
+
+    mock_arg1 = {
+        'apiVersion': 'policy/v1beta1',
+        'kind': 'Eviction',
+        'deleteOptions': {},
+        'metadata': {
+            'name': 'test_pod2',
+            'namespace': 'test_ns'
+        }
+    }
+
+    mock_api.create_namespaced_pod_eviction.assert_any_call('test_pod1', 'test_ns', mock_arg)
+    mock_api.create_namespaced_pod_eviction.assert_any_call('test_pod2', 'test_ns', mock_arg1)
+
+
 
 def test_remove_disruption_failure(mocker):
     list_pods_val = dict_to_simple_namespace({'items': [
@@ -110,7 +162,7 @@ def test_remove_disruption_failure(mocker):
                               'create_namespaced_pod_eviction.side_effect': [ApiException(status=429), None]}
                            )
 
-    remove_all_pods(mock_api, 'test_node', poll=1)
+    remove_all_pods(mock_api, 'test_node', '1.15', poll=1)
 
     mock_api.list_pod_for_all_namespaces.assert_called_with(watch=False, include_uninitialized=True, field_selector='spec.nodeName=test_node')
 
@@ -145,7 +197,7 @@ def test_remove_pending(mocker):
 
     mock_api = mocker.Mock(**{'list_pod_for_all_namespaces.side_effect': [list_pods_val, list_pods_val, empty_list_pods_val]})
 
-    remove_all_pods(mock_api, 'test_node', poll=1)
+    remove_all_pods(mock_api, 'test_node', '1.15', poll=1)
 
     mock_api.list_pod_for_all_namespaces.assert_has_calls([
         call(watch=False, include_uninitialized=True, field_selector='spec.nodeName=test_node'),
@@ -206,7 +258,7 @@ def test_skip_daemonsets(mocker):
     ]})
     mock_api = mocker.Mock(**{'list_pod_for_all_namespaces.side_effect': [list_pods_val, unevictable_pods_val]})
 
-    remove_all_pods(mock_api, 'test_node')
+    remove_all_pods(mock_api, 'test_node', '1.15')
 
     mock_api.list_pod_for_all_namespaces.assert_called_with(watch=False, include_uninitialized=True, field_selector='spec.nodeName=test_node')
 
@@ -256,7 +308,7 @@ def test_skip_mirror_pods(mocker):
     ]}, skip={".items.metadata.annotations": True})
     mock_api = mocker.Mock(**{'list_pod_for_all_namespaces.side_effect': [list_pods_val, unevictable_pods_val]})
 
-    remove_all_pods(mock_api, 'test_node')
+    remove_all_pods(mock_api, 'test_node', '1.15')
 
     mock_api.list_pod_for_all_namespaces.assert_called_with(watch=False, include_uninitialized=True, field_selector='spec.nodeName=test_node')
 

@@ -140,6 +140,8 @@ def _lambda_handler(env, k8s_config, k8s_client, event):
     api = k8s_client.ApiClient(configuration)
     v1 = k8s_client.CoreV1Api(api)
 
+    cluster_version = eks.describe_cluster(name=cluster_name)['cluster']['version']
+
     try:
         if not node_exists(v1, node_name):
             logger.error('Node not found.')
@@ -148,7 +150,7 @@ def _lambda_handler(env, k8s_config, k8s_client, event):
 
         cordon_node(v1, node_name)
 
-        remove_all_pods(v1, node_name)
+        remove_all_pods(v1, node_name, cluster_version)
 
         asg.complete_lifecycle_action(LifecycleHookName=lifecycle_hook_name,
                                       AutoScalingGroupName=auto_scaling_group_name,

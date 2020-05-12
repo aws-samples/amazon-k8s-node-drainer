@@ -19,6 +19,7 @@ def handler(monkeypatch):
 @pytest.fixture()
 def mock_eks(mocker):
     return mocker.Mock(**{'describe_cluster.return_value': {'cluster': {
+        'version': '1.15',
         'certificateAuthority': {
             'data': '84586abd904ef'
         },

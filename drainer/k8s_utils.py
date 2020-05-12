@@ -28,13 +28,13 @@ def cordon_node(api, node_name):
     api.patch_node(node_name, patch_body)
 
 
-def remove_all_pods(api, node_name, poll=5):
+def remove_all_pods(api, node_name, cluster_version, poll=5):
     """Removes all Kubernetes pods from the specified node."""
     pods = get_evictable_pods(api, node_name)
 
     logger.debug('Number of pods to delete: ' + str(len(pods)))
 
-    evict_until_completed(api, pods, poll)
+    evict_until_completed(api, pods, cluster_version, poll)
     wait_until_empty(api, node_name, poll)
 
 
@@ -58,16 +58,16 @@ def get_evictable_pods(api, node_name):
     return [pod for pod in pods.items if pod_is_evictable(pod)]
 
 
-def evict_until_completed(api, pods, poll):
+def evict_until_completed(api, pods, cluster_version, poll):
     pending = pods
     while True:
-        pending = evict_pods(api, pending)
+        pending = evict_pods(api, pending, cluster_version)
         if (len(pending)) <= 0:
             return
         time.sleep(poll)
 
 
-def evict_pods(api, pods):
+def evict_pods(api, pods, cluster_version):
     remaining = []
     for pod in pods:
         logger.info('Evicting pod {} in namespace {}'.format(pod.metadata.name, pod.metadata.namespace))
@@ -80,8 +80,11 @@ def evict_pods(api, pods):
                 'namespace': pod.metadata.namespace
             }
         }
+
+        eviction_name = pod.metadata.name + '-eviction' if cluster_version < '1.16' else pod.metadata.name
+
         try:
-            api.create_namespaced_pod_eviction(pod.metadata.name + '-eviction', pod.metadata.namespace, body)
+            api.create_namespaced_pod_eviction(eviction_name, pod.metadata.namespace, body)
         except ApiException as err:
             if err.status == 429:
                 remaining.append(pod)
