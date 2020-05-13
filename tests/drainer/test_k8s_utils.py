@@ -89,8 +89,8 @@ def test_remove_all_pods(mocker):
         }
     }
 
-    mock_api.create_namespaced_pod_eviction.assert_any_call('test_pod1-eviction', 'test_ns', mock_arg)
-    mock_api.create_namespaced_pod_eviction.assert_any_call('test_pod2-eviction', 'test_ns', mock_arg1)
+    mock_api.create_namespaced_pod_eviction.assert_any_call('test_pod1', 'test_ns', mock_arg)
+    mock_api.create_namespaced_pod_eviction.assert_any_call('test_pod2', 'test_ns', mock_arg1)
 
 
 def test_remove_disruption_failure(mocker):
@@ -125,8 +125,8 @@ def test_remove_disruption_failure(mocker):
     }
 
     mock_api.create_namespaced_pod_eviction.assert_has_calls([
-        call('test_pod1-eviction', 'test_ns', mock_arg),
-        call('test_pod1-eviction', 'test_ns', mock_arg)]
+        call('test_pod1', 'test_ns', mock_arg),
+        call('test_pod1', 'test_ns', mock_arg)]
     )
 
 
@@ -163,7 +163,7 @@ def test_remove_pending(mocker):
         }
     }
 
-    mock_api.create_namespaced_pod_eviction.assert_any_call('test_pod1-eviction', 'test_ns', mock_arg)
+    mock_api.create_namespaced_pod_eviction.assert_any_call('test_pod1', 'test_ns', mock_arg)
 
 
 def test_skip_daemonsets(mocker):
@@ -220,7 +220,7 @@ def test_skip_daemonsets(mocker):
         }
     }
 
-    mock_api.create_namespaced_pod_eviction.assert_any_call('test_pod2-eviction', 'test_ns', mock_arg1)
+    mock_api.create_namespaced_pod_eviction.assert_any_call('test_pod2', 'test_ns', mock_arg1)
 
 def test_skip_mirror_pods(mocker):
     list_pods_val = dict_to_simple_namespace({'items': [
@@ -270,4 +270,4 @@ def test_skip_mirror_pods(mocker):
         }
     }
 
-    mock_api.create_namespaced_pod_eviction.assert_any_call('test_pod2-eviction', 'test_ns', mock_arg1)
+    mock_api.create_namespaced_pod_eviction.assert_any_call('test_pod2', 'test_ns', mock_arg1)
