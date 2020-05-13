@@ -81,7 +81,7 @@ def evict_pods(api, pods):
             }
         }
         try:
-            api.create_namespaced_pod_eviction(pod.metadata.name + '-eviction', pod.metadata.namespace, body)
+            api.create_namespaced_pod_eviction(pod.metadata.name, pod.metadata.namespace, body)
         except ApiException as err:
             if err.status == 429:
                 remaining.append(pod)
