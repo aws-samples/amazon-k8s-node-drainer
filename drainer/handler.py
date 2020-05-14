@@ -23,9 +23,8 @@ asg = boto3.client('autoscaling', region_name=REGION)
 s3 = boto3.client('s3', region_name=REGION)
 
 
-def create_kube_config(eks, cluster_name):
+def create_kube_config(eks, cluster_info):
     """Creates the Kubernetes config file required when instantiating the API client."""
-    cluster_info = eks.describe_cluster(name=cluster_name)['cluster']
     certificate = cluster_info['certificateAuthority']['data']
     endpoint = cluster_info['endpoint']
 
@@ -112,13 +111,15 @@ def _lambda_handler(env, k8s_config, k8s_client, event):
     kube_config_bucket = env['kube_config_bucket']
     cluster_name = env['cluster_name']
 
+    cluster_info = eks.describe_cluster(name=cluster_name)['cluster']
+
     if not os.path.exists(KUBE_FILEPATH):
         if kube_config_bucket:
             logger.info('No kubeconfig file found. Downloading...')
             s3.download_file(kube_config_bucket, env['kube_config_object'], KUBE_FILEPATH)
         else:
             logger.info('No kubeconfig file found. Generating...')
-            create_kube_config(eks, cluster_name)
+            create_kube_config(eks, cluster_info)
 
     lifecycle_hook_name = event['detail']['LifecycleHookName']
     auto_scaling_group_name = event['detail']['AutoScalingGroupName']
@@ -140,8 +141,6 @@ def _lambda_handler(env, k8s_config, k8s_client, event):
     api = k8s_client.ApiClient(configuration)
     v1 = k8s_client.CoreV1Api(api)
 
-    cluster_version = eks.describe_cluster(name=cluster_name)['cluster']['version']
-
     try:
         if not node_exists(v1, node_name):
             logger.error('Node not found.')
@@ -150,7 +149,7 @@ def _lambda_handler(env, k8s_config, k8s_client, event):
 
         cordon_node(v1, node_name)
 
-        remove_all_pods(v1, node_name, cluster_version)
+        remove_all_pods(v1, node_name, cluster_info['version'])
 
         asg.complete_lifecycle_action(LifecycleHookName=lifecycle_hook_name,
                                       AutoScalingGroupName=auto_scaling_group_name,

@@ -8,6 +8,15 @@ from kubernetes.client.rest import ApiException
 
 from tests.utils import dict_to_simple_namespace
 
+describe_cluster_response = {
+    'cluster': {
+        'version': '1.15',
+        'certificateAuthority': {
+            'data': '84586abd904ef'
+        },
+        'endpoint': 'https://test-cluster.amazonaws.com'
+     }
+}
 
 @pytest.fixture()
 def handler(monkeypatch):
@@ -15,16 +24,9 @@ def handler(monkeypatch):
     import drainer.handler as handler
     return handler
 
-
 @pytest.fixture()
 def mock_eks(mocker):
-    return mocker.Mock(**{'describe_cluster.return_value': {'cluster': {
-        'version': '1.15',
-        'certificateAuthority': {
-            'data': '84586abd904ef'
-        },
-        'endpoint': 'https://test-cluster.amazonaws.com'
-    }}})
+    return mocker.Mock(**{'describe_cluster.return_value': describe_cluster_response})
 
 
 @pytest.fixture()
@@ -218,7 +220,7 @@ def test_create_kube_config(handler, fs, mock_eks):
     kube_config_loc = os.path.join(os.path.dirname(__file__), 'fixtures/kube_config.yaml')
     fs.add_real_file(kube_config_loc)
 
-    handler.create_kube_config(mock_eks, 'test-cluster')
+    handler.create_kube_config(mock_eks, describe_cluster_response['cluster'])
 
     assert os.path.exists('/tmp/kubeconfig') is True
 
