@@ -49,6 +49,13 @@ def pod_is_evictable(pod):
             if ref.kind == CONTROLLER_KIND_DAEMON_SET:
                 logger.info("Skipping DaemonSet {}/{}".format(pod.metadata.namespace, pod.metadata.name))
                 return False
+            if pod.status and pod.status.phase:
+                if pod.status.phase == "Failed":
+                    logger.info("Skipping failed pod {}/{}".format(pod.metadata.namespace, pod.metadata.name))
+                    return False
+                elif pod.status.phase == "Succeeded":
+                    logger.info("Skipping succeeded pod {}/{}".format(pod.metadata.namespace, pod.metadata.name))
+                    return False
     return True
 
 
