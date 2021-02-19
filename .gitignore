@@ -4,3 +4,4 @@
 .pytest_cache
 htmlcov
 packaged.yaml
+__pycache__

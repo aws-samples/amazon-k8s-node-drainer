@@ -27,4 +27,4 @@ jobs:
           pipenv install --dev --ignore-pipfile
       # Run Tests
       - name: Unit tests
-        run: py.test --cov=drainer
+        run: pipenv run py.test --cov=drainer
