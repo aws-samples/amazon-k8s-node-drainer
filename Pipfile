@@ -14,6 +14,7 @@ pytest-cov = "==2.6.1"
 [packages]
 kubernetes = "==9.0.0"
 pyyaml = "==5.4"
+urllib3 = "==1.26.5"
 
 [requires]
 python_version = "3.7"
