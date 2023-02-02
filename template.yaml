@@ -1,13 +1,10 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Gracefully drain k8s nodes when instances are terminated (uksb-1pf6fjp67)
+Description: Gracefully drain connections from target groups during autoscaling scale-in events.
 
 Parameters:
 
   AutoScalingGroup:
-    Type: String
-
-  EksCluster:
     Type: String
 
 Globals:
@@ -15,12 +12,12 @@ Globals:
         Timeout: 300
 
 Resources:
-
     LifecycleHook:
       Type: AWS::AutoScaling::LifecycleHook
       Properties:
         AutoScalingGroupName: !Ref AutoScalingGroup
-        HeartbeatTimeout: 450
+        HeartbeatTimeout: 600
+        DefaultResult: CONTINUE
         LifecycleTransition: autoscaling:EC2_INSTANCE_TERMINATING
 
     DrainerRole:
@@ -46,6 +43,10 @@ Resources:
                     - autoscaling:CompleteLifecycleAction
                     - ec2:DescribeInstances
                     - eks:DescribeCluster
+                    - elasticloadbalancing:DescribeTargetGroups
+                    - elasticloadbalancing:DeregisterTargets
+                    - elasticloadbalancing:DescribeTargetHealth 
+                    - elasticloadbalancing:DescribeTargetGroups
                     - sts:GetCallerIdentity
                   Resource: '*'
         ManagedPolicyArns:
@@ -56,7 +57,7 @@ Resources:
         Properties:
           CodeUri: drainer/
           Handler: handler.lambda_handler
-          Runtime: python3.7
+          Runtime: python3.9
           MemorySize: 256
           Environment:
             Variables:
