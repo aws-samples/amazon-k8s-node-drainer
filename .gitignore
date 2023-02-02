@@ -1,7 +1,4 @@
 .aws-sam
-.coverage
-.idea
 .pytest_cache
-htmlcov
 packaged.yaml
 __pycache__
