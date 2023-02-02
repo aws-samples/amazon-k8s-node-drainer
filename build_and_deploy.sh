@@ -13,7 +13,7 @@ sam build --profile ${PROFILE} \
     --s3-bucket ${BUCKET} \
 && sam deploy --profile ${PROFILE} \
     --stack-name asg-deregister-${NAME} \
-    --template-file /Users/ati/Documents/github_pub/amazon-k8s-node-drainer/packaged.yaml \
+    --template-file packaged.yaml \
     --capabilities CAPABILITY_IAM \
     --parameter-overrides AutoScalingGroup=${ASG} \
     --s3-bucket ${BUCKET}

@@ -8,7 +8,6 @@ import re
 from botocore.signers import RequestSigner
 
 from aws_utils import deregister_and_drain_node
-from eks_auth import eks_auth
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)

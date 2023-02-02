@@ -78,7 +78,7 @@ aws cloudformation describe-stacks \
 Run the following command to simulate an EC2 instance being terminated as part of a scale-in event:
 
 ```bash
-aws autoscaling terminate-instance-in-auto-scaling-group --no-should-decrement-desired-capacity --instance-id <instance-id>
+aws autoscaling terminate-instance-in-auto-scaling-group --should-decrement-desired-capacity --instance-id <instance-id>
 ```
 
 You must use this command for Auto Scaling Lifecycle hooks to be used. Terminating the instance via the EC2 Console or APIs will immediately terminate the instance, bypassing the lifecycle hooks.

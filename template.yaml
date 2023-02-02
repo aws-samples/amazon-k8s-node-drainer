@@ -59,9 +59,6 @@ Resources:
           Handler: handler.lambda_handler
           Runtime: python3.9
           MemorySize: 256
-          Environment:
-            Variables:
-              CLUSTER_NAME: !Ref EksCluster
           Role: !GetAtt DrainerRole.Arn
           Events:
             TerminationEvent:

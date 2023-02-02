@@ -50,12 +50,7 @@ def _deregister_instance_from_target_groups(elbv2, instance_tgs:list=[], instanc
             )
 
     except WaiterError as e:
-        message = e.response["Message"]
-        if "Max attempts exceeded" in message:
-            logger.error(f'Took more than 2 min to deregister the mode : {message}')
-        else:
-            logger.error(message)
-
+        logger.error(e)
 
 def deregister_and_drain_node(elbv2, instance_id:str="") -> None:
     """Deregister an instance from all the target groups is is into.
