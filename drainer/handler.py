@@ -1,11 +1,6 @@
-import tempfile
 import boto3
-import base64
 import logging
 import os.path
-import re
-
-from botocore.signers import RequestSigner
 
 from aws_utils import deregister_and_drain_node
 
